@@ -1,12 +1,12 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleAlert, Eye, Gem, ImagePlus, Lightbulb, LoaderCircle, LockKeyhole, RefreshCw, Shirt, Sparkles, SunMedium, Upload, WandSparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleAlert, Gem, ImagePlus, Lightbulb, LoaderCircle, LockKeyhole, RefreshCw, Shirt, Sparkles, SunMedium, Upload, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ColorProfile, inspectAndAnalyze, QualityIssue, rgbToHex, SEASONS } from "@/lib/color-analysis";
 
-type Step = "home" | "guide" | "upload" | "checking" | "quality" | "analyzing" | "result";
+type Step = "home" | "guide" | "upload" | "camera" | "analyzing" | "result";
 type Analysis = { preview: string; issues: QualityIssue[]; profile: ColorProfile };
 type WebModelContext = { registerTool: (tool: { name: string; title: string; description: string; inputSchema: object; annotations: { readOnlyHint: boolean; untrustedContentHint: boolean }; execute: (input: unknown) => unknown }, options?: { signal: AbortSignal }) => void | Promise<void> };
 
@@ -16,8 +16,6 @@ const guideItems = [
   { icon: Camera, title: "露出完整面部", text: "收起刘海，摘下眼镜，正对镜头" },
 ];
 
-const qualityLabels: Record<QualityIssue["code"], string> = { dark: "亮度", bright: "曝光", blur: "清晰度", cast: "色偏", face: "人脸" };
-const defaultChecks = ["亮度自然", "曝光正常", "画面清晰", "肤色可读取", "正脸已定位"];
 const drapes = [
   { name: "推荐色", key: "best" },
   { name: "对比色", key: "avoid" },
@@ -61,33 +59,32 @@ export function ColorTestApp() {
 
   const reset = () => { if (analysis?.preview) URL.revokeObjectURL(analysis.preview); setAnalysis(null); setError(""); setDrapeIndex(0); setAbRound(0); setAbChoice(null); setStep("upload"); };
 
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function processPhoto(file: File) {
     if (!file.type.startsWith("image/")) { setError("请选择 JPG、PNG 或 WebP 照片"); return; }
     if (file.size > 18 * 1024 * 1024) { setError("照片请控制在 18MB 以内"); return; }
-    setError(""); setStep("checking");
+    setError(""); setStep("analyzing");
     try {
       const result = await inspectAndAnalyze(file);
       setAnalysis(result);
-      setTimeout(() => setStep("quality"), 900);
+      setTimeout(() => setStep("result"), 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "照片读取失败，请换一张再试");
       setStep("upload");
     }
-    event.target.value = "";
   }
 
-  function startAnalysis() {
-    setStep("analyzing");
-    setTimeout(() => setStep("result"), 1500);
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processPhoto(file);
+    event.target.value = "";
   }
 
   if (step === "home") return <Home onStart={() => setStep("guide")} />;
   if (step === "guide") return <Guide onBack={() => setStep("home")} onNext={() => setStep("upload")} />;
-  if (step === "upload") return <UploadStep inputRef={inputRef} onFile={handleFile} onBack={() => setStep("guide")} error={error} />;
-  if (step === "checking" || step === "analyzing") return <LoadingStep analysis={analysis} analyzing={step === "analyzing"} />;
-  if (step === "quality" && analysis) return <QualityStep analysis={analysis} onRetry={reset} onContinue={startAnalysis} />;
+  if (step === "upload") return <UploadStep inputRef={inputRef} onFile={handleFile} onCamera={() => setStep("camera")} onBack={() => setStep("guide")} error={error} />;
+  if (step === "camera") return <CameraStep onBack={() => setStep("upload")} onCapture={processPhoto} onFile={handleFile} />;
+  if (step === "analyzing") return <LoadingStep analysis={analysis} />;
   if (step === "result" && analysis) {
     const season = SEASONS[analysis.profile.season];
     const colors = drapeKind === "best" ? season.palette : season.avoid;
@@ -145,40 +142,86 @@ function Guide({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   </section></main>;
 }
 
-function UploadStep({ inputRef, onFile, onBack, error }: { inputRef: React.RefObject<HTMLInputElement | null>; onFile: (e: ChangeEvent<HTMLInputElement>) => void; onBack: () => void; error: string }) {
-  return <main className="min-h-screen bg-[#f8f6f3]"><Header back={onBack} progress={36} /><section className="mx-auto max-w-2xl px-5 py-10 text-center sm:py-14">
-    <p className="text-xs font-semibold tracking-[.16em] text-[#b45e66]">添加照片</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.035em] sm:text-4xl">拍一张自然光正脸照</h1><p className="mx-auto mt-3 max-w-md leading-7 text-[#756d68]">拍照或从相册选择。处理全程在浏览器中完成，照片不会上传。</p>
-    <button onClick={() => inputRef.current?.click()} className="group mx-auto mt-8 grid aspect-[4/5] w-full max-w-sm place-items-center overflow-hidden rounded-[2rem] border border-dashed border-[#cfc5be] bg-white text-[#6f6660] shadow-sm transition hover:border-[#ad7777] hover:bg-[#fdfafa]">
-      <div><span className="mx-auto grid size-16 place-items-center rounded-full bg-[#f2e9e6] text-[#a45660] transition group-hover:scale-105"><ImagePlus className="size-7" /></span><p className="mt-5 font-medium text-[#332c28]">轻触拍照或选择照片</p><p className="mt-2 text-sm">JPG、PNG、WebP · 最大 18MB</p></div>
-    </button>
-    <input ref={inputRef} className="sr-only" type="file" accept="image/*" capture="user" onChange={onFile} />
+function UploadStep({ inputRef, onFile, onCamera, onBack, error }: { inputRef: React.RefObject<HTMLInputElement | null>; onFile: (e: ChangeEvent<HTMLInputElement>) => void; onCamera: () => void; onBack: () => void; error: string }) {
+  return <main className="min-h-screen bg-[#f8f6f3]"><Header back={onBack} progress={36} /><section className="mx-auto max-w-xl px-5 py-10 text-center sm:py-14">
+    <p className="text-xs font-semibold tracking-[.16em] text-[#b45e66]">添加照片</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.035em] sm:text-4xl">选择一种方式</h1><p className="mx-auto mt-3 max-w-md leading-7 text-[#756d68]">你可以直接打开前置摄像头，也可以从相册中选择已有照片。</p>
+    <div className="mt-8 grid gap-4 sm:grid-cols-2">
+      <button onClick={onCamera} className="group rounded-[1.8rem] bg-[#292321] p-6 text-left text-white shadow-[0_18px_44px_rgba(43,35,32,.18)] transition hover:-translate-y-0.5 hover:bg-[#403633]">
+        <span className="grid size-14 place-items-center rounded-full bg-white/12"><Camera className="size-6" /></span><p className="mt-12 text-xl font-semibold">直接拍照</p><p className="mt-2 text-sm leading-6 text-white/60">打开相机，在人脸框内拍摄</p><span className="mt-6 flex items-center justify-between text-sm">打开相机 <ArrowRight className="size-4 transition group-hover:translate-x-1" /></span>
+      </button>
+      <button onClick={() => inputRef.current?.click()} className="group rounded-[1.8rem] border border-[#ded6d0] bg-white p-6 text-left text-[#332c28] shadow-sm transition hover:-translate-y-0.5 hover:border-[#c39b9e]">
+        <span className="grid size-14 place-items-center rounded-full bg-[#f2e9e6] text-[#a45660]"><ImagePlus className="size-6" /></span><p className="mt-12 text-xl font-semibold">选择照片</p><p className="mt-2 text-sm leading-6 text-[#817771]">从手机相册或电脑中上传</p><span className="mt-6 flex items-center justify-between text-sm">打开相册 <Upload className="size-4 transition group-hover:-translate-y-0.5" /></span>
+      </button>
+    </div>
+    <input ref={inputRef} className="sr-only" type="file" accept="image/*" onChange={onFile} />
     {error && <p className="mx-auto mt-4 flex max-w-sm items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"><CircleAlert className="size-4" />{error}</p>}
-    <Button variant="outline" onClick={() => inputRef.current?.click()} className="mt-6 h-12 rounded-full border-[#d7cec8] bg-white px-6"><Upload /> 选择照片</Button>
-    <div className="mx-auto mt-8 flex max-w-sm items-start gap-3 text-left text-xs leading-5 text-[#857c77]"><LockKeyhole className="mt-0.5 size-4 shrink-0" /><p>我们会读取脸颊、额头、头发与眼部附近的色值。关闭页面后，照片与分析数据会自动消失。</p></div>
+    <div className="mx-auto mt-8 flex max-w-md items-start gap-3 text-left text-xs leading-5 text-[#857c77]"><LockKeyhole className="mt-0.5 size-4 shrink-0" /><p>照片只在当前浏览器中处理。无论拍摄环境如何，都会直接进入分析，不会要求重拍。</p></div>
   </section></main>;
 }
 
-function LoadingStep({ analysis, analyzing }: { analysis: Analysis | null; analyzing: boolean }) {
-  const messages = analyzing ? ["读取肤色 Lab 数值", "估计头发与瞳孔颜色", "计算 12 季倾向"] : ["检查亮度与曝光", "检查清晰度", "定位面部区域"];
-  return <main className="grid min-h-screen place-items-center bg-[#f1eeea] px-5"><div className="w-full max-w-sm text-center">
-    <div className="relative mx-auto aspect-[4/5] w-56 overflow-hidden rounded-[2rem] bg-[#d8cfca] shadow-xl" style={analysis ? { backgroundImage: `url(${analysis.preview})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}><div className="absolute inset-0 animate-[scan_1.8s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-white/30 to-transparent" /><div className="absolute inset-5 rounded-[42%] border border-white/60" /></div>
-    <LoaderCircle className="mx-auto mt-7 size-6 animate-spin text-[#a95760]" /><h1 className="mt-4 text-2xl font-semibold">{analyzing ? "正在生成你的色彩档案" : "正在检查照片质量"}</h1><div className="mt-5 space-y-2 text-sm text-[#766d68]">{messages.map((m, i) => <p key={m} className="flex items-center justify-center gap-2"><span className={`size-1.5 rounded-full ${i === 0 ? "bg-[#b85f66]" : "bg-[#cfc7c2]"}`} />{m}</p>)}</div>
-  </div></main>;
-}
+function CameraStep({ onBack, onCapture, onFile }: { onBack: () => void; onCapture: (file: File) => Promise<void>; onFile: (e: ChangeEvent<HTMLInputElement>) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [cameraError, setCameraError] = useState("");
+  const [ready, setReady] = useState(false);
 
-function QualityStep({ analysis, onRetry, onContinue }: { analysis: Analysis; onRetry: () => void; onContinue: () => void }) {
-  const blocking = analysis.issues.some(i => i.level === "error");
-  const issueCodes = new Set(analysis.issues.map(i => i.code));
-  return <main className="min-h-screen bg-[#f8f6f3]"><Header back={onRetry} progress={55} /><section className="mx-auto max-w-3xl px-5 py-9 sm:py-12">
-    <div className="grid gap-7 md:grid-cols-[.85fr_1.15fr]">
-      <div className="aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ddd4cf] bg-cover bg-center shadow-lg" style={{backgroundImage:`url(${analysis.preview})`}} />
-      <div><p className={`text-xs font-semibold tracking-[.15em] ${blocking ? "text-amber-700" : "text-[#66836b]"}`}>{blocking ? "需要重新拍摄" : "照片质量通过"}</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{blocking ? "这张照片可能影响判断" : "光线很好，可以继续"}</h1>
-        <div className="mt-6 space-y-2.5">{defaultChecks.map((label, i) => { const code = (["dark", "bright", "blur", "cast", "face"] as QualityIssue["code"][])[i]; const issue = analysis.issues.find(v => v.code === code); return <div key={label} className="flex items-center gap-3 rounded-xl border border-[#e6dfda] bg-white px-4 py-3"><span className={`grid size-7 place-items-center rounded-full ${issue ? "bg-amber-50 text-amber-700" : "bg-[#edf3ed] text-[#63806a]"}`}>{issue ? <CircleAlert className="size-4" /> : <Check className="size-4" />}</span><div><p className="text-sm font-medium">{qualityLabels[code] ?? label}</p><p className="text-xs text-[#817873]">{issue?.message ?? label}</p></div></div>; })}</div>
-        <div className="mt-6 flex gap-3"><Button variant="outline" onClick={onRetry} className="h-12 flex-1 rounded-full border-[#d8cfc9] bg-white"><RefreshCw />重拍</Button><Button onClick={onContinue} disabled={blocking} className="h-12 flex-[1.35] rounded-full bg-[#292321] hover:bg-[#4a3e39]">开始分析<ArrowRight /></Button></div>
-        {analysis.profile.faceMode === "estimated" && !blocking && <p className="mt-4 text-xs leading-5 text-[#857c77]">当前浏览器不支持原生人脸定位，已使用中央正脸几何区域估计，因此会降低置信度。</p>}
+  useEffect(() => {
+    let active = true;
+    setReady(false); setCameraError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("当前浏览器不支持网页相机，请改为选择照片");
+      return () => undefined;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode, width: { ideal: 1280 }, height: { ideal: 1600 } }, audio: false })
+      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return; } streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play(); } })
+      .catch(() => { if (active) setCameraError("无法打开相机，请允许相机权限，或改为选择照片"); });
+    return () => { active = false; streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null; };
+  }, [facingMode]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    if (facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => { if (blob) void onCapture(new File([blob], `mute-camera-${Date.now()}.jpg`, { type: "image/jpeg" })); }, "image/jpeg", .94);
+  };
+
+  return <main className="fixed inset-0 z-50 flex bg-[#101010] text-white">
+    <div className="relative mx-auto flex h-full w-full max-w-[620px] flex-col overflow-hidden bg-[#101010]">
+      <div className="relative z-20 flex h-[84px] shrink-0 items-center justify-between px-5 sm:h-[96px]">
+        <button onClick={onBack} className="flex h-11 items-center gap-1 rounded-full px-2 text-base hover:bg-white/10"><ArrowLeft className="size-5" /> 返回</button>
+        <div className="flex gap-2" aria-label="步骤 2/3"><span className="size-2.5 rounded-full bg-[#9d7381]" /><span className="size-2.5 rounded-full bg-[#d9c9b4]" /><span className="size-2.5 rounded-full bg-white/75" /></div><span className="w-[72px]" />
+      </div>
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-[#3e5b7c]">
+        <video ref={videoRef} onCanPlay={() => setReady(true)} autoPlay playsInline muted className={`h-full w-full object-cover ${facingMode === "user" ? "-scale-x-100" : ""}`} />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(20,34,52,.28),transparent_25%,transparent_72%,rgba(20,24,29,.35))]" />
+        <p className="absolute inset-x-5 top-8 z-10 text-center text-base font-medium tracking-wide text-white drop-shadow-sm sm:top-10 sm:text-lg">让脸和额发落在框内，正对镜头</p>
+        <div className="pointer-events-none absolute left-1/2 top-[18%] h-[57%] w-[64%] max-w-[360px] -translate-x-1/2 rounded-[48%] border-2 border-dashed border-white/80 shadow-[0_0_0_999px_rgba(37,48,62,.18)]" />
+        {!ready && !cameraError && <div className="absolute inset-0 grid place-items-center bg-[#24374b]/70"><LoaderCircle className="size-7 animate-spin" /></div>}
+        {cameraError && <div className="absolute inset-0 grid place-items-center bg-[#1b1b1b]/92 px-8 text-center"><div><CircleAlert className="mx-auto size-8 text-[#d7a4a8]" /><p className="mt-4 text-base leading-7">{cameraError}</p><Button onClick={() => galleryRef.current?.click()} className="mt-5 h-11 rounded-full bg-white px-6 text-[#292321] hover:bg-white/90">选择照片</Button></div></div>}
+      </div>
+      <div className="relative z-20 grid h-[150px] shrink-0 grid-cols-3 items-center bg-[#101010] px-7 sm:h-[174px]">
+        <button onClick={() => setFacingMode(v => v === "user" ? "environment" : "user")} className="mx-auto grid size-12 place-items-center rounded-full border border-white/35 text-white hover:bg-white/10" aria-label="翻转镜头"><RefreshCw className="size-5" /></button>
+        <button onClick={capture} disabled={!ready || Boolean(cameraError)} className="mx-auto grid size-[76px] place-items-center rounded-full border-[5px] border-[#f6f2e9] disabled:opacity-40" aria-label="拍照"><span className="size-[58px] rounded-full bg-[#f6f2e9] transition active:scale-90" /></button>
+        <button onClick={() => galleryRef.current?.click()} className="mx-auto grid size-12 place-items-center rounded-full border border-white/35 text-white hover:bg-white/10" aria-label="从相册选择"><ImagePlus className="size-5" /></button>
+        <input ref={galleryRef} className="sr-only" type="file" accept="image/*" onChange={onFile} />
       </div>
     </div>
-  </section></main>;
+  </main>;
+}
+
+function LoadingStep({ analysis }: { analysis: Analysis | null }) {
+  const messages = ["读取肤色 Lab 数值", "估计头发与瞳孔颜色", "计算 12 季倾向"];
+  return <main className="grid min-h-screen place-items-center bg-[#f1eeea] px-5"><div className="w-full max-w-sm text-center">
+    <div className="relative mx-auto aspect-[4/5] w-56 overflow-hidden rounded-[2rem] bg-[#d8cfca] shadow-xl" style={analysis ? { backgroundImage: `url(${analysis.preview})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}><div className="absolute inset-0 animate-[scan_1.8s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-white/30 to-transparent" /><div className="absolute inset-5 rounded-[42%] border border-white/60" /></div>
+    <LoaderCircle className="mx-auto mt-7 size-6 animate-spin text-[#a95760]" /><h1 className="mt-4 text-2xl font-semibold">正在生成你的色彩档案</h1><div className="mt-5 space-y-2 text-sm text-[#766d68]">{messages.map((m, i) => <p key={m} className="flex items-center justify-center gap-2"><span className={`size-1.5 rounded-full ${i === 0 ? "bg-[#b85f66]" : "bg-[#cfc7c2]"}`} />{m}</p>)}</div>
+  </div></main>;
 }
 
 function ResultStep({ analysis, onReset, drapeColor, drapeKind, setDrapeKind, setDrapeIndex, drapes, abPair, abRound, abChoice, chooseAb }: { analysis: Analysis; onReset: () => void; drapeColor: string; drapeKind: "best" | "avoid"; setDrapeKind: (k: "best" | "avoid") => void; setDrapeIndex: React.Dispatch<React.SetStateAction<number>>; drapes: typeof drapes; abPair: string[]; abRound: number; abChoice: "a" | "b" | null; chooseAb: (c: "a" | "b") => void }) {
@@ -202,7 +245,7 @@ function ResultStep({ analysis, onReset, drapeColor, drapeKind, setDrapeKind, se
       <div className="rounded-[1.7rem] bg-[#e9e1db] p-6 sm:p-8"><p className="text-xs font-semibold tracking-[.14em] text-[#8b5557]">A/B COLOR CHECK · {Math.min(abRound + 1, 3)}/3</p><h2 className="mt-1 text-2xl font-semibold">哪边让你看起来更精神？</h2><p className="mt-2 text-sm leading-6 text-[#746a64]">不要看你更喜欢哪个颜色，只观察面部。</p><div className="mt-6 grid grid-cols-2 gap-3">{(["a","b"] as const).map((choice, i) => <button key={choice} onClick={() => chooseAb(choice)} className={`overflow-hidden rounded-2xl border-2 bg-white transition ${abChoice === choice ? "scale-[.98] border-[#9d555d]" : "border-white"}`}><div className="aspect-[4/5] bg-cover bg-center" style={{backgroundImage:`linear-gradient(to top, ${abPair[i]} 0 34%, transparent 34%), url(${analysis.preview})`}} /><div className="flex items-center justify-between px-4 py-3"><span className="font-medium">选项 {choice.toUpperCase()}</span><ChevronRight className="size-4" /></div></button>)}</div>{abRound >= 3 ? <p className="mt-4 rounded-xl bg-white/65 p-3 text-sm text-[#655b56]"><Check className="mr-2 inline size-4" />已记录偏好，可作为下次算法调整的依据。</p> : null}</div>
     </section>
 
-    <details className="mt-6 rounded-[1.7rem] border border-[#e3dcd6] bg-white p-6"><summary className="cursor-pointer font-medium">算法是怎样判断的？</summary><div className="mt-4 grid gap-3 text-sm leading-6 text-[#746b66] sm:grid-cols-3"><p><strong className="block text-[#302925]">1. 取样</strong>读取额头与双颊像素，绕开五官高色彩区域。</p><p><strong className="block text-[#302925]">2. 转换</strong>把 RGB 转为 Lab，再计算冷暖、明度、彩度与对比。</p><p><strong className="block text-[#302925]">3. 分类</strong>使用可调整阈值映射到 12 季，并因照片质量修正置信度。</p></div></details>
+    <details className="mt-6 rounded-[1.7rem] border border-[#e3dcd6] bg-white p-6"><summary className="cursor-pointer font-medium">算法是怎样判断的？</summary><div className="mt-4 grid gap-3 text-sm leading-6 text-[#746b66] sm:grid-cols-3"><p><strong className="block text-[#302925]">1. 取样</strong>读取额头与双颊像素，绕开五官高色彩区域。</p><p><strong className="block text-[#302925]">2. 转换</strong>把 RGB 转为 Lab，再计算冷暖、明度、彩度与对比。</p><p><strong className="block text-[#302925]">3. 分类</strong>使用透明、可调整的阈值映射到 12 季结果。</p></div></details>
     <div className="mt-8 flex flex-col items-center"><Button onClick={onReset} variant="outline" className="h-12 rounded-full border-[#d5ccc6] bg-white px-6"><Camera />换一张照片重新测试</Button><p className="mt-4 max-w-xl text-center text-xs leading-5 text-[#887f79]">个人色彩会受光源、相机白平衡、染发和肤况影响。本结果是程序化估计，不构成专业结论。</p></div>
   </section></main>;
 }
