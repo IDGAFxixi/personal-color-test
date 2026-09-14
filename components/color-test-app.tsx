@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleAlert, Gem, I
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ColorProfile, inspectAndAnalyze, QualityIssue, rgbToHex, SEASONS } from "@/lib/color-analysis";
+import { ResultReport } from "@/components/result-report";
 
 type Step = "home" | "guide" | "upload" | "camera" | "analyzing" | "result";
 type Analysis = { preview: string; issues: QualityIssue[]; profile: ColorProfile };
@@ -90,7 +91,7 @@ export function ColorTestApp() {
     const colors = drapeKind === "best" ? season.palette : season.avoid;
     const drapeColor = colors[drapeIndex % colors.length];
     const abPairs = [[season.palette[0], season.avoid[0]], [season.palette[3], season.avoid[1]], [season.palette[5], season.avoid[2]]];
-    return <ResultStep analysis={analysis} onReset={reset} drapeColor={drapeColor} drapeKind={drapeKind} setDrapeKind={(kind) => { setDrapeKind(kind); setDrapeIndex(0); }} setDrapeIndex={setDrapeIndex} drapes={drapes} abPair={abPairs[abRound % abPairs.length]} abRound={abRound} abChoice={abChoice} chooseAb={(choice) => { setAbChoice(choice); setTimeout(() => { setAbRound(v => v + 1); setAbChoice(null); }, 450); }} />;
+    return <ResultReport analysis={analysis} onReset={reset} drapeColor={drapeColor} drapeKind={drapeKind} setDrapeKind={(kind) => { setDrapeKind(kind); setDrapeIndex(0); }} setDrapeIndex={setDrapeIndex} drapes={drapes} abPair={abPairs[abRound % abPairs.length]} abRound={abRound} abChoice={abChoice} chooseAb={(choice) => { setAbChoice(choice); setTimeout(() => { setAbRound(v => v + 1); setAbChoice(null); }, 450); }} />;
   }
   return null;
 }
@@ -112,21 +113,16 @@ function Home({ onStart }: { onStart: () => void }) {
       <div className="flex items-center gap-2.5"><span className="grid size-9 place-items-center rounded-full bg-[#292321] text-sm font-semibold text-white">M</span><span className="text-sm font-semibold tracking-[0.18em]">MUTE 色研所</span></div>
       <div className="flex items-center gap-1.5 text-xs text-[#756d68]"><LockKeyhole className="size-3.5" /> 照片仅在本机分析</div>
     </header>
-    <section className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-12 px-5 pb-14 pt-5 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:py-12">
-      <div className="relative z-10 max-w-xl">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#ded7d2] bg-white/70 px-3.5 py-2 text-xs font-medium text-[#716762] shadow-sm backdrop-blur"><span className="size-1.5 rounded-full bg-[#c8646b]" /> 12 季个人色彩 · 浏览器本地分析</div>
-        <h1 className="text-[clamp(2.75rem,7vw,5.8rem)] font-medium leading-[.94] tracking-[-0.065em]">找到让你<br />更明亮的颜色</h1>
-        <p className="mt-7 max-w-md text-base leading-7 text-[#6f6762] sm:text-lg">从一张自然光照片出发，分析冷暖、明度和彩度，并用色布对比帮你校准结果。</p>
-        <Button onClick={onStart} className="mt-9 h-14 rounded-full bg-[#292321] px-7 text-base text-white shadow-[0_12px_30px_rgba(43,35,32,.18)] hover:bg-[#4a3e39]">开始色彩测试 <ArrowRight className="size-4" /></Button>
-        <div className="mt-7 flex items-center gap-4 text-xs text-[#857c77]"><span>约 2 分钟</span><span className="h-3 w-px bg-[#d8d1cc]" /><span>无需注册</span><span className="h-3 w-px bg-[#d8d1cc]" /><span>结果可调整</span></div>
-      </div>
-      <div className="relative mx-auto w-full max-w-[470px]">
-        <div className="absolute -left-12 top-6 size-40 rounded-full bg-[#efc4c2]/55 blur-3xl" /><div className="absolute -right-6 bottom-12 size-44 rounded-full bg-[#c7d7c5]/60 blur-3xl" />
-        <div className="relative aspect-[4/5] overflow-hidden rounded-[2.5rem] border border-white/80 bg-[#ddd4cf] p-5 shadow-[0_30px_80px_rgba(74,59,51,.18)]">
-          <div className="h-full overflow-hidden rounded-[1.8rem] bg-[radial-gradient(circle_at_50%_34%,#f5d8c9_0_12%,#c79a87_13%_18%,transparent_19%),linear-gradient(145deg,#b58d84_0%,#ead2c6_45%,#9d726c_100%)]">
-            <div className="flex h-full flex-col justify-end bg-gradient-to-t from-[#3b2d2b]/70 via-transparent to-white/10 p-6 text-white"><div className="mb-4 flex gap-2">{["#A96168", "#E3B7A6", "#71605B", "#D8C6A5"].map(color => <span key={color} className="size-8 rounded-full border-2 border-white/70 shadow" style={{background:color}} />)}</div><p className="text-xs uppercase tracking-[.2em] text-white/70">Your color mood</p><p className="mt-1 text-2xl font-medium">柔和 · 温暖 · 低对比</p></div>
-          </div>
+    <section className="relative mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center px-5 pb-16 pt-8 sm:px-8 sm:pb-24">
+      <div className="pointer-events-none absolute right-[8%] top-[17%] hidden h-[55%] w-px bg-gradient-to-b from-transparent via-[#cfc5bd] to-transparent lg:block" />
+      <div className="relative z-10 max-w-4xl">
+        <div className="mb-8 flex items-center gap-3 text-xs font-medium tracking-[.14em] text-[#877b74]"><span className="h-px w-10 bg-[#9d6d78]" /> PERSONAL COLOR / 12 SEASONS</div>
+        <h1 className="text-[clamp(3.4rem,9vw,7.6rem)] font-medium leading-[.88] tracking-[-0.075em]">你的颜色，<br /><span className="font-light text-[#8d6b75]">应该先看见你。</span></h1>
+        <div className="mt-10 flex flex-col items-start gap-7 sm:flex-row sm:items-center">
+          <Button onClick={onStart} className="h-15 rounded-full bg-[#292321] px-8 text-base text-white shadow-[0_16px_34px_rgba(43,35,32,.16)] hover:bg-[#4a3e39]">开始色彩测试 <ArrowRight className="size-4" /></Button>
+          <p className="max-w-sm text-sm leading-6 text-[#766c66] sm:text-base">一张照片，得到完整的 12 季色彩档案、妆容与穿搭指南，并可导出个人报告。</p>
         </div>
+        <div className="mt-12 flex flex-wrap items-center gap-x-5 gap-y-3 text-xs text-[#8b817b]"><span>约 2 分钟</span><span className="size-1 rounded-full bg-[#c6bbb4]" /><span>无需注册</span><span className="size-1 rounded-full bg-[#c6bbb4]" /><span>本地处理</span>{["#A9606B","#DDB59E","#85736E","#CFBF9B"].map(c => <span key={c} className="size-5 rounded-full border border-white shadow-sm" style={{background:c}} />)}</div>
       </div>
     </section>
   </main>;
