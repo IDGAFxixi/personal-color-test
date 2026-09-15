@@ -117,12 +117,15 @@ function Home({ onStart }: { onStart: () => void }) {
       <div className="pointer-events-none absolute right-[8%] top-[17%] hidden h-[55%] w-px bg-gradient-to-b from-transparent via-[#cfc5bd] to-transparent lg:block" />
       <div className="relative z-10 max-w-4xl">
         <div className="mb-8 flex items-center gap-3 text-xs font-medium tracking-[.14em] text-[#877b74]"><span className="h-px w-10 bg-[#9d6d78]" /> PERSONAL COLOR / 12 SEASONS</div>
-        <h1 className="text-[clamp(3.4rem,9vw,7.6rem)] font-medium leading-[.88] tracking-[-0.075em]">你的颜色，<br /><span className="font-light text-[#8d6b75]">应该先看见你。</span></h1>
+        <h1 className="max-w-[9em] text-[clamp(3.25rem,8.5vw,7.25rem)] font-medium leading-[1.08] tracking-[-0.055em]">定位你的<br /><span className="font-light text-[#8d6b75]">色彩四季</span></h1>
         <div className="mt-10 flex flex-col items-start gap-7 sm:flex-row sm:items-center">
           <Button onClick={onStart} className="h-15 rounded-full bg-[#292321] px-8 text-base text-white shadow-[0_16px_34px_rgba(43,35,32,.16)] hover:bg-[#4a3e39]">开始色彩测试 <ArrowRight className="size-4" /></Button>
           <p className="max-w-sm text-sm leading-6 text-[#766c66] sm:text-base">一张照片，得到完整的 12 季色彩档案、妆容与穿搭指南，并可导出个人报告。</p>
         </div>
-        <div className="mt-12 flex flex-wrap items-center gap-x-5 gap-y-3 text-xs text-[#8b817b]"><span>约 2 分钟</span><span className="size-1 rounded-full bg-[#c6bbb4]" /><span>无需注册</span><span className="size-1 rounded-full bg-[#c6bbb4]" /><span>本地处理</span>{["#A9606B","#DDB59E","#85736E","#CFBF9B"].map(c => <span key={c} className="size-5 rounded-full border border-white shadow-sm" style={{background:c}} />)}</div>
+        <div className="mt-12 flex max-w-xl items-center justify-between gap-5 border-t border-[#ded7d1] pt-5 text-[11px] text-[#827872] sm:text-xs">
+          <div className="flex shrink-0 items-center gap-4 sm:gap-6"><span className="whitespace-nowrap">约 2 分钟</span><span className="whitespace-nowrap">无需注册</span><span className="whitespace-nowrap">本地处理</span></div>
+          <div className="flex shrink-0 items-center gap-2" aria-label="色彩示意">{["#A9606B","#DDB59E","#85736E","#CFBF9B"].map(c => <span key={c} className="size-4 rounded-full border border-white shadow-sm sm:size-5" style={{background:c}} />)}</div>
+        </div>
       </div>
     </section>
   </main>;
@@ -213,7 +216,7 @@ function CameraStep({ onBack, onCapture, onFile }: { onBack: () => void; onCaptu
 }
 
 function LoadingStep({ analysis }: { analysis: Analysis | null }) {
-  const messages = ["读取肤色 Lab 数值", "估计头发与瞳孔颜色", "计算 12 季倾向"];
+  const messages = ["定位面部与五官关键点", "读取肤色、发色、瞳孔与眉色", "计算明度、彩度与五官对比"];
   return <main className="grid min-h-screen place-items-center bg-[#f1eeea] px-5"><div className="w-full max-w-sm text-center">
     <div className="relative mx-auto aspect-[4/5] w-56 overflow-hidden rounded-[2rem] bg-[#d8cfca] shadow-xl" style={analysis ? { backgroundImage: `url(${analysis.preview})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}><div className="absolute inset-0 animate-[scan_1.8s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-white/30 to-transparent" /><div className="absolute inset-5 rounded-[42%] border border-white/60" /></div>
     <LoaderCircle className="mx-auto mt-7 size-6 animate-spin text-[#a95760]" /><h1 className="mt-4 text-2xl font-semibold">正在生成你的色彩档案</h1><div className="mt-5 space-y-2 text-sm text-[#766d68]">{messages.map((m, i) => <p key={m} className="flex items-center justify-center gap-2"><span className={`size-1.5 rounded-full ${i === 0 ? "bg-[#b85f66]" : "bg-[#cfc7c2]"}`} />{m}</p>)}</div>

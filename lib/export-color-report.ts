@@ -89,20 +89,24 @@ export async function exportColorReport(analysis: ReportAnalysis, advice: Extend
   {
     const { canvas, ctx } = page();
     sectionTitle(ctx, "COLOR DIAGNOSIS", "色彩诊断卡", 108);
-    text(ctx, "从冷暖、明度、彩度与对比四个维度理解你的色彩位置。", PAD, 206, 24, "#716862", 400);
-    metricBar(ctx, "冷暖倾向", profile.undertone, (profile.metrics.warmth + 100) / 200, 300, "#A97869");
-    metricBar(ctx, "明度", profile.value, profile.metrics.lightness / 100, 420, "#B4A6A1");
-    metricBar(ctx, "彩度", profile.chroma, Math.min(1, profile.metrics.chroma / 45), 540, "#8A6578");
-    metricBar(ctx, "对比度", profile.contrast, profile.metrics.contrast / 100, 660, "#46413E");
-    roundRect(ctx, PAD, 800, W - PAD * 2, 284, 30, "#2E2926");
-    text(ctx, "BEST / SECOND / AVOID", PAD + 36, 856, 17, "#C9ADB5", 600);
-    text(ctx, season.cn, PAD + 36, 927, 42, "#FFFFFF", 650); text(ctx, advice.secondary, PAD + 390, 927, 32, "#D9D0CA", 500);
-    season.avoid.forEach((color, i) => { roundRect(ctx, PAD + 36 + i * 125, 982, 98, 54, 14, color); });
-    text(ctx, "谨慎色", PAD + 430, 1018, 18, "#AFA5A0", 400);
-    sectionTitle(ctx, "COLOR READINGS", "照片色值与底妆", 1195);
-    const samples = [["肤色", profile.skin], ["发色", profile.hair], ["眼睛", profile.eyes]] as const;
-    samples.forEach(([label, color], i) => { const y = 1290 + i * 88; ctx.beginPath(); ctx.arc(PAD + 26, y - 9, 25, 0, Math.PI * 2); ctx.fillStyle = rgbToHex(color); ctx.fill(); text(ctx, label, PAD + 72, y, 21, "#746B65", 500); text(ctx, rgbToHex(color), PAD + 200, y, 21, "#2D2825", 600); });
-    roundRect(ctx, 620, 1270, 524, 210, 24, "#E8E0D8"); text(ctx, "建议粉底", 654, 1324, 18, "#866B70", 600); wrapped(ctx, advice.foundation, 654, 1380, 450, 27, 42, "#2D2825", 500);
+    text(ctx, "综合肤色、发色、瞳孔、眉毛与五官结构理解你的色彩位置。", PAD, 206, 24, "#716862", 400);
+    metricBar(ctx, "冷暖倾向", profile.undertone, (profile.metrics.warmth + 100) / 200, 278, "#A97869");
+    metricBar(ctx, "明度", profile.value, profile.metrics.lightness / 100, 382, "#B4A6A1");
+    metricBar(ctx, "彩度", profile.chroma, Math.min(1, profile.metrics.chroma / 45), 486, "#8A6578");
+    metricBar(ctx, "综合对比", profile.contrast, profile.metrics.contrast / 100, 590, "#46413E");
+    metricBar(ctx, "瞳孔对比", "眼神清晰度", profile.metrics.pupilContrast / 100, 694, "#66525A");
+    metricBar(ctx, "眉眼定义", "五官轮廓", profile.metrics.featureDefinition / 100, 798, "#7C6B64");
+    roundRect(ctx, PAD, 914, W - PAD * 2, 220, 30, "#2E2926");
+    text(ctx, "BEST / SECOND / AVOID", PAD + 36, 966, 17, "#C9ADB5", 600);
+    text(ctx, season.cn, PAD + 36, 1032, 42, "#FFFFFF", 650); text(ctx, advice.secondary, PAD + 390, 1032, 32, "#D9D0CA", 500);
+    season.avoid.forEach((color, i) => { roundRect(ctx, PAD + 36 + i * 125, 1060, 98, 42, 12, color); });
+    text(ctx, "谨慎色", PAD + 430, 1090, 18, "#AFA5A0", 400);
+    sectionTitle(ctx, "COLOR READINGS", "局部色值与五官结构", 1210);
+    const samples = [["面部肤色", profile.skin], ["头发", profile.hair], ["瞳孔", profile.eyes], ["眉毛", profile.brows]] as const;
+    samples.forEach(([label, color], i) => { const y = 1305 + i * 66; ctx.beginPath(); ctx.arc(PAD + 22, y - 8, 21, 0, Math.PI * 2); ctx.fillStyle = rgbToHex(color); ctx.fill(); text(ctx, label, PAD + 60, y, 19, "#746B65", 500); text(ctx, rgbToHex(color), PAD + 215, y, 19, "#2D2825", 600); });
+    roundRect(ctx, 620, 1280, 524, 250, 24, "#E8E0D8"); text(ctx, "五官分布", 654, 1334, 18, "#866B70", 600);
+    wrapped(ctx, `眼距 ${Math.round(profile.features.eyeSpacing)}% · 面部纵横 ${Math.round(profile.features.faceRatio)} · 眉眼距 ${Math.round(profile.features.browEyeDistance)}% · 左右平衡 ${Math.round(profile.features.symmetry)}`, 654, 1390, 450, 24, 38, "#2D2825", 500);
+    text(ctx, "建议粉底", 654, 1470, 18, "#866B70", 600); wrapped(ctx, advice.foundation, 654, 1512, 450, 23, 35, "#2D2825", 500);
     footer(ctx, 2); pages.push(canvas);
   }
 

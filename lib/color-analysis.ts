@@ -17,8 +17,24 @@ export type ColorProfile = {
   skin: RGB;
   hair: RGB;
   eyes: RGB;
-  metrics: { warmth: number; lightness: number; chroma: number; contrast: number };
+  brows: RGB;
+  metrics: {
+    warmth: number;
+    lightness: number;
+    chroma: number;
+    contrast: number;
+    pupilContrast: number;
+    browContrast: number;
+    featureDefinition: number;
+  };
+  features: {
+    eyeSpacing: number;
+    faceRatio: number;
+    browEyeDistance: number;
+    symmetry: number;
+  };
   faceMode: "detected" | "estimated";
+  landmarkMode: "detected" | "estimated";
 };
 
 export type SeasonKey =
@@ -83,6 +99,25 @@ const averageRegion = (data: ImageData, cx: number, cy: number, radius: number, 
 
 const mix = (values: RGB[]): RGB => ({ r: values.reduce((s, v) => s + v.r, 0) / values.length, g: values.reduce((s, v) => s + v.g, 0) / values.length, b: values.reduce((s, v) => s + v.b, 0) / values.length });
 const luminance = (c: RGB) => .2126 * c.r + .7152 * c.g + .0722 * c.b;
+const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
+const colorDistance = (a: RGB, b: RGB) => Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
+const darkestCenter = (data: ImageData, cx: number, cy: number, rx: number, ry: number) => {
+  const candidates: { x: number; y: number; light: number }[] = [];
+  const x0 = Math.max(0, Math.floor(cx - rx)), x1 = Math.min(data.width - 1, Math.ceil(cx + rx));
+  const y0 = Math.max(0, Math.floor(cy - ry)), y1 = Math.min(data.height - 1, Math.ceil(cy + ry));
+  for (let y = y0; y <= y1; y += 2) for (let x = x0; x <= x1; x += 2) {
+    if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 > 1) continue;
+    const i = (y * data.width + x) * 4;
+    candidates.push({ x, y, light: .2126 * data.data[i] + .7152 * data.data[i + 1] + .0722 * data.data[i + 2] });
+  }
+  const selected = candidates.sort((a, b) => a.light - b.light).slice(0, Math.max(6, Math.round(candidates.length * .16)));
+  if (!selected.length) return { x: cx, y: cy };
+  return { x: selected.reduce((sum, point) => sum + point.x, 0) / selected.length, y: selected.reduce((sum, point) => sum + point.y, 0) / selected.length };
+};
+const colorWarmth = (color: RGB) => {
+  const lab = rgbToLab(color);
+  return (lab.b - lab.a * .42 - 7) * 5;
+};
 
 export async function inspectAndAnalyze(file: File): Promise<{ preview: string; issues: QualityIssue[]; profile: ColorProfile }> {
   const bitmap = await createImageBitmap(file);
@@ -117,31 +152,89 @@ export async function inspectAndAnalyze(file: File): Promise<{ preview: string; 
     if (Math.max(...neutral) - Math.min(...neutral) > 19) issues.push({ code: "cast", level: "error", message: "环境光有明显色偏，请关闭彩色灯光后重拍" });
   }
 
+  type Point = { x: number; y: number };
   type FaceBox = { x: number; y: number; width: number; height: number };
+  type FaceLandmark = { type?: string; locations?: Point[] };
+  type DetectedFace = { boundingBox: DOMRectReadOnly; landmarks?: FaceLandmark[] };
   let face: FaceBox = { x: width * .2, y: height * .12, width: width * .6, height: height * .68 };
   let faceMode: ColorProfile["faceMode"] = "estimated";
-  const FaceDetectorCtor = (window as unknown as { FaceDetector?: new (o: { fastMode: boolean; maxDetectedFaces: number }) => { detect: (source: ImageBitmap) => Promise<{ boundingBox: DOMRectReadOnly }[]> } }).FaceDetector;
+  let detectedLandmarks: FaceLandmark[] = [];
+  const FaceDetectorCtor = (window as unknown as { FaceDetector?: new (o: { fastMode: boolean; maxDetectedFaces: number }) => { detect: (source: ImageBitmap) => Promise<DetectedFace[]> } }).FaceDetector;
   if (FaceDetectorCtor) {
     try {
       const found = await new FaceDetectorCtor({ fastMode: false, maxDetectedFaces: 2 }).detect(bitmap);
-      if (found.length === 1) { const b = found[0].boundingBox; face = { x: b.x * scale, y: b.y * scale, width: b.width * scale, height: b.height * scale }; faceMode = "detected"; }
+      if (found.length === 1) {
+        const b = found[0].boundingBox;
+        face = { x: b.x * scale, y: b.y * scale, width: b.width * scale, height: b.height * scale };
+        detectedLandmarks = found[0].landmarks ?? [];
+        faceMode = "detected";
+      }
       else issues.push({ code: "face", level: "error", message: found.length ? "请只保留一张完整正脸" : "没有识别到完整正脸，请重新拍摄" });
     } catch { /* use geometry fallback */ }
   }
   if (faceMode === "estimated" && (width / height > 1.35 || width < 280)) issues.push({ code: "face", level: "warning", message: "未能精确定位正脸，结果置信度会降低" });
 
   const px = (nx: number) => face.x + face.width * nx, py = (ny: number) => face.y + face.height * ny;
+  const scalePoint = (point: Point): Point => ({ x: point.x * scale, y: point.y * scale });
+  const landmarkCenter = (landmark: FaceLandmark): Point | null => {
+    if (!landmark.locations?.length) return null;
+    const locations = landmark.locations.map(scalePoint);
+    return {
+      x: locations.reduce((sum, point) => sum + point.x, 0) / locations.length,
+      y: locations.reduce((sum, point) => sum + point.y, 0) / locations.length,
+    };
+  };
+  const detectedEyes = detectedLandmarks
+    .filter(landmark => landmark.type?.toLowerCase().includes("eye"))
+    .map(landmarkCenter)
+    .filter((point): point is Point => Boolean(point))
+    .sort((a, b) => a.x - b.x);
+  const landmarkMode: ColorProfile["landmarkMode"] = detectedEyes.length >= 2 ? "detected" : "estimated";
+  const leftEyeSeed = detectedEyes[0] ?? { x: px(.36), y: py(.43) };
+  const rightEyeSeed = detectedEyes[detectedEyes.length - 1] ?? { x: px(.64), y: py(.43) };
+  const eyeSearchX = face.width * (landmarkMode === "detected" ? .055 : .1);
+  const eyeSearchY = face.height * (landmarkMode === "detected" ? .035 : .06);
+  const leftEye = darkestCenter(data, leftEyeSeed.x, leftEyeSeed.y, eyeSearchX, eyeSearchY);
+  const rightEye = darkestCenter(data, rightEyeSeed.x, rightEyeSeed.y, eyeSearchX, eyeSearchY);
+  const eyeRadius = clamp(face.width * .026, 3, 18);
+  const browOffset = face.height * .085;
+  const leftBrow = darkestCenter(data, leftEye.x, leftEye.y - browOffset, face.width * .09, face.height * .035);
+  const rightBrow = darkestCenter(data, rightEye.x, rightEye.y - browOffset, face.width * .09, face.height * .035);
+
   const skin = mix([
     averageRegion(data, px(.5), py(.24), face.width * .055),
     averageRegion(data, px(.29), py(.57), face.width * .06),
     averageRegion(data, px(.71), py(.57), face.width * .06),
+    averageRegion(data, px(.5), py(.7), face.width * .045),
   ]);
-  const hair = averageRegion(data, px(.5), py(.07), face.width * .12, true);
-  const eyes = mix([averageRegion(data, px(.36), py(.43), face.width * .027, true), averageRegion(data, px(.64), py(.43), face.width * .027, true)]);
+  const hair = mix([
+    averageRegion(data, px(.5), py(.055), face.width * .11, true),
+    averageRegion(data, px(.3), py(.12), face.width * .065, true),
+    averageRegion(data, px(.7), py(.12), face.width * .065, true),
+  ]);
+  const eyes = mix([
+    averageRegion(data, leftEye.x, leftEye.y, eyeRadius, true),
+    averageRegion(data, rightEye.x, rightEye.y, eyeRadius, true),
+  ]);
+  const brows = mix([
+    averageRegion(data, leftBrow.x, leftBrow.y, face.width * .042, true),
+    averageRegion(data, rightBrow.x, rightBrow.y, face.width * .042, true),
+  ]);
   const lab = rgbToLab(skin);
-  const warmth = Math.max(-100, Math.min(100, (lab.b - lab.a * .42 - 7) * 5));
-  const chromaValue = Math.sqrt(lab.a ** 2 + lab.b ** 2);
-  const contrastValue = Math.min(100, (Math.abs(luminance(skin) - luminance(hair)) * .65 + Math.abs(luminance(skin) - luminance(eyes)) * .35) / 1.7);
+  const eyeSpacing = clamp(Math.abs(rightEye.x - leftEye.x) / face.width * 100);
+  const faceRatio = clamp(face.height / face.width * 50);
+  const browEyeDistance = clamp(((leftEye.y - leftBrow.y + rightEye.y - rightBrow.y) / 2) / face.height * 100);
+  const faceCenter = face.x + face.width / 2;
+  const symmetry = clamp(100 - Math.abs(((leftEye.x + rightEye.x) / 2) - faceCenter) / (face.width / 2) * 100);
+  const pupilContrast = clamp(Math.abs(luminance(skin) - luminance(eyes)) / 1.75);
+  const browContrast = clamp(Math.abs(luminance(skin) - luminance(brows)) / 1.75);
+  const hairContrast = clamp(Math.abs(luminance(skin) - luminance(hair)) / 1.75);
+  const featureDefinition = clamp(pupilContrast * .42 + browContrast * .28 + hairContrast * .22 + symmetry * .08);
+  const warmth = clamp(colorWarmth(skin) * .68 + colorWarmth(hair) * .12 + colorWarmth(eyes) * .12 + colorWarmth(brows) * .08, -100, 100);
+  const skinChroma = Math.sqrt(lab.a ** 2 + lab.b ** 2);
+  const eyesLab = rgbToLab(eyes), hairLab = rgbToLab(hair), browsLab = rgbToLab(brows);
+  const chromaValue = skinChroma * .7 + Math.hypot(eyesLab.a, eyesLab.b) * .14 + Math.hypot(hairLab.a, hairLab.b) * .1 + Math.hypot(browsLab.a, browsLab.b) * .06;
+  const contrastValue = clamp(hairContrast * .34 + pupilContrast * .3 + browContrast * .2 + featureDefinition * .16);
   const isWarm = warmth > 7, isCool = warmth < -7;
   const lightness = lab.l;
   let season: SeasonKey;
@@ -162,14 +255,18 @@ export async function inspectAndAnalyze(file: File): Promise<{ preview: string; 
     else if (lightness < 56) season = warmth >= 0 ? "deep-autumn" : "deep-winter";
     else season = warmth >= 0 ? "soft-autumn" : "soft-summer";
   }
-  const confidence = Math.round(Math.max(42, Math.min(91, 59 + Math.abs(warmth) * .15 + Math.abs(lightness - 64) * .15 + (faceMode === "detected" ? 14 : 0) - issues.length * 7)));
+  const sampleSeparation = clamp((colorDistance(skin, hair) + colorDistance(skin, eyes) + colorDistance(skin, brows)) / 9);
+  const confidence = Math.round(clamp(52 + Math.abs(warmth) * .12 + Math.abs(lightness - 64) * .12 + sampleSeparation * .08 + (faceMode === "detected" ? 9 : 0) + (landmarkMode === "detected" ? 7 : 0) - issues.length * 5, 42, 93));
   const profile: ColorProfile = {
     season, confidence,
     undertone: isWarm ? "偏暖" : isCool ? "偏冷" : "中性",
     value: lightness > 72 ? "明亮" : lightness < 57 ? "深邃" : "中等",
     chroma: chromaValue > 31 ? "清透" : chromaValue < 23 ? "柔和" : "适中",
     contrast: contrastValue > 61 ? "高" : contrastValue < 42 ? "低" : "中",
-    skin, hair, eyes, metrics: { warmth, lightness, chroma: chromaValue, contrast: contrastValue }, faceMode,
+    skin, hair, eyes, brows,
+    metrics: { warmth, lightness, chroma: chromaValue, contrast: contrastValue, pupilContrast, browContrast, featureDefinition },
+    features: { eyeSpacing, faceRatio, browEyeDistance, symmetry },
+    faceMode, landmarkMode,
   };
   return { preview, issues, profile };
 }
