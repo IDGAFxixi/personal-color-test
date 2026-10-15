@@ -79,7 +79,7 @@ export async function exportEnglishColorReport(analysis: Analysis, advice: Engli
     text(ctx, "PERSONAL STYLE GUIDE", P, 116, 18, "#916A77", 700); text(ctx, "Makeup · Hair · Wardrobe", P, 176, 48, "#2D2825", 700);
     box(ctx, P, 242, W - P * 2, 390, 30, "#E9E1DA"); text(ctx, "MAKEUP PALETTE", P + 34, 300, 19, "#8A6672", 700);
     row(ctx, "Foundation", advice.foundation, 360); row(ctx, "Lips", season.makeup.lip, 432); row(ctx, "Blush", season.makeup.blush, 504); row(ctx, "Eyes / brows", `${season.makeup.eye}; ${season.makeup.brow}`, 576);
-    text(ctx, "HAIR & ACCESSORIES", P, 730, 19, "#916A77", 700); row(ctx, "Best hair colors", advice.hair, 796); row(ctx, "Avoid", advice.hairAvoid, 872); row(ctx, "Glasses / lenses", `${advice.glasses}; ${advice.lens}`, 948); row(ctx, "Jewelry / nails", `${palette.metals}; ${advice.manicure}`, 1024);
+    text(ctx, "HAIR & ACCESSORIES", P, 730, 19, "#916A77", 700); row(ctx, "Best hair colors", advice.hair, 796); row(ctx, "Avoid", advice.hairAvoid, 872); row(ctx, "Glasses / lenses", `${advice.glasses}; ${advice.lens}`, 948); row(ctx, "Jewelry / nails", `${advice.jewelry}; ${advice.manicure}`, 1024);
     box(ctx, P, 1110, W - P * 2, 420, 30, "#2E2926"); text(ctx, "WARDROBE FORMULA", P + 34, 1170, 18, "#C9ADB5", 700); text(ctx, advice.outfitSame, P + 34, 1230, 31, "#FFFFFF", 650); wrap(ctx, advice.outfitNeighbor, P + 34, 1282, 960, 24, 36, "#D8D0CA", 500); wrap(ctx, advice.ratio, P + 34, 1355, 960, 23, 35, "#BFB5AF", 450); wrap(ctx, advice.stylingRule, P + 34, 1435, 960, 22, 34, "#FFFFFF", 500);
     text(ctx, "This report is a photo-based estimate for personal color exploration, not a professional diagnosis.", P, 1635, 16, "#8A817B", 450);
     footer(ctx, 2); pages.push(canvas);
