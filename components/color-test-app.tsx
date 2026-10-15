@@ -224,7 +224,7 @@ function LoadingStep({ analysis }: { analysis: Analysis | null }) {
   </div></main>;
 }
 
-function ResultStep({ analysis, onReset, drapeColor, drapeKind, setDrapeKind, setDrapeIndex, drapes, abPair, abRound, abChoice, chooseAb }: { analysis: Analysis; onReset: () => void; drapeColor: string; drapeKind: "best" | "avoid"; setDrapeKind: (k: "best" | "avoid") => void; setDrapeIndex: React.Dispatch<React.SetStateAction<number>>; drapes: typeof drapes; abPair: string[]; abRound: number; abChoice: "a" | "b" | null; chooseAb: (c: "a" | "b") => void }) {
+function ResultStep({ analysis, onReset, drapeColor, drapeKind, setDrapeKind, setDrapeIndex, drapes, abPair, abRound, abChoice, chooseAb }: { analysis: Analysis; onReset: () => void; drapeColor: string; drapeKind: "best" | "avoid"; setDrapeKind: (k: "best" | "avoid") => void; setDrapeIndex: React.Dispatch<React.SetStateAction<number>>; drapes: ReadonlyArray<{ name: string; key: "best" | "avoid" }>; abPair: string[]; abRound: number; abChoice: "a" | "b" | null; chooseAb: (c: "a" | "b") => void }) {
   const p = analysis.profile, season = SEASONS[p.season];
   return <main className="min-h-screen bg-[#f6f3ef]"><Header /><section className="mx-auto max-w-5xl px-5 pb-20 pt-8 sm:pt-12">
     <div className="rounded-[2rem] bg-[#2c2624] px-6 py-8 text-white sm:px-10 sm:py-10"><div className="grid items-center gap-8 md:grid-cols-[.72fr_1.28fr]">
