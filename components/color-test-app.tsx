@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleAlert, Gem, ImagePlus, Lightbulb, LoaderCircle, LockKeyhole, RefreshCw, Shirt, Sparkles, SunMedium, Upload, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ function Home({ onStart }: { onStart: () => void }) {
   return <main className="min-h-screen overflow-hidden bg-[#f7f5f2] text-[#27221f]">
     <header className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 sm:px-8">
       <div className="flex items-center gap-2.5"><span className="grid size-9 place-items-center rounded-full bg-[#292321] text-sm font-semibold text-white">M</span><span className="text-sm font-semibold tracking-[0.18em]">MUTE 色研所</span></div>
-      <div className="flex items-center gap-1.5 text-xs text-[#756d68]"><LockKeyhole className="size-3.5" /> 照片仅在本机分析</div>
+      <div className="flex items-center gap-3 text-xs text-[#756d68]"><span className="hidden items-center gap-1.5 sm:flex"><LockKeyhole className="size-3.5" /> 照片仅在本机分析</span><Link href="/en" className="rounded-full border border-[#d9d1cb] bg-white/70 px-3 py-1.5 font-semibold tracking-[.08em] text-[#403835] transition hover:bg-white" aria-label="Switch to English">EN</Link></div>
     </header>
     <section className="relative mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center px-5 pb-16 pt-8 sm:px-8 sm:pb-24">
       <div className="pointer-events-none absolute right-[8%] top-[17%] hidden h-[55%] w-px bg-gradient-to-b from-transparent via-[#cfc5bd] to-transparent lg:block" />
